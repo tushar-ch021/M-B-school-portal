@@ -29,6 +29,7 @@ const spa404Fallback = () => ({
 });
 
 export default defineConfig({
+  base: "/",
   plugins: [react(), spa404Fallback()],
   build: {
     outDir: "dist",
