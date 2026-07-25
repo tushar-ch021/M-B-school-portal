@@ -34,6 +34,7 @@ const FeeManagement = () => {
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [monthlyStudentId, setMonthlyStudentId] = useState(studentIdParam || '');
+  const [initialSyncing, setInitialSyncing] = useState(!!studentIdParam);
 
   const [search, setSearch] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
@@ -49,16 +50,34 @@ const FeeManagement = () => {
 
   const receiptRef = useRef(null);
 
-  // Auto-switch tab if studentId param passed from Student Profile
+  // Auto-switch tab and sync filters if studentId param passed from Student Profile
   useEffect(() => {
     if (studentIdParam) {
+      setInitialSyncing(true);
       setMonthlyStudentId(studentIdParam);
       setActiveTab('monthly_student');
+      studentService.getStudentById(studentIdParam)
+        .then((student) => {
+          if (student) {
+            if (student.class) setSelectedClass(student.class);
+            if (student.section) setSelectedSection(student.section);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to sync student filters:', err);
+        })
+        .finally(() => {
+          setInitialSyncing(false);
+        });
+    } else {
+      setInitialSyncing(false);
     }
   }, [studentIdParam]);
 
   // Fetch students list for Class/Student dropdown filters
   useEffect(() => {
+    if (initialSyncing) return;
+
     setLoadingStudents(true);
     studentService.getStudents({
       className: selectedClass,
@@ -80,7 +99,7 @@ const FeeManagement = () => {
       })
       .catch(() => toast.error('Failed to load students'))
       .finally(() => setLoadingStudents(false));
-  }, [selectedClass, selectedSection, search]);
+  }, [selectedClass, selectedSection, search, initialSyncing, monthlyStudentId]);
 
   const handleReceiptPrint = () => {
     printElement(receiptRef.current, `Receipt_${activeReceipt?.receiptNo || 'payment'}`);
@@ -149,6 +168,8 @@ const FeeManagement = () => {
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => {
+              if (st.class) setSelectedClass(st.class);
+              if (st.section) setSelectedSection(st.section);
               setMonthlyStudentId(st._id);
               setActiveTab('monthly_student');
             }}
