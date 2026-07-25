@@ -115,11 +115,13 @@ const Dashboard = () => {
             Welcome to the internal administrative dashboard. Monitor registrations, billing, and document requests.
           </p>
         </div>
-        <img 
-          src="/logo.png" 
-          alt={`${branding.schoolCode} Emblem`} 
-          className="hidden sm:block h-16 w-16 object-contain opacity-25 relative z-10" 
-        />
+        <div className="hidden sm:flex h-24 w-24 rounded-full bg-white border-2 border-white/30 shadow-md items-center justify-center overflow-hidden p-0.5 opacity-90 relative z-10 shrink-0">
+          <img 
+            src="/logo.png" 
+            alt={`${branding.schoolCode} Emblem`} 
+            className="h-full w-full rounded-full object-cover" 
+          />
+        </div>
       </div>
 
       {/* Class filter bar */}

@@ -63,12 +63,14 @@ const CertificateTemplate = forwardRef(({ student, category, title, reasonText, 
         {/* Certificate Top Bar (Certificate Serial & Category Badge) */}
         <div className="flex items-start justify-between border-b border-gray-200 pb-3 mb-2">
           <div className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="School Logo"
-              className="h-14 w-14 object-contain"
-              onError={(e) => { e.target.style.display = 'none'; }}
-            />
+            <div className="h-20 w-20 rounded-full bg-white border border-gray-300 flex items-center justify-center overflow-hidden p-0.5 shrink-0">
+              <img
+                src="/logo.png"
+                alt="School Logo"
+                className="h-full w-full rounded-full object-cover"
+                onError={(e) => { e.target.style.display = 'none'; }}
+              />
+            </div>
             <div>
               <h1 className="text-base font-black tracking-widest uppercase text-[#0B2545] font-serif leading-none">
                 {branding.schoolName}

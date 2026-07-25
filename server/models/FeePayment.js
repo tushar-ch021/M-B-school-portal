@@ -48,6 +48,38 @@ const feePaymentSchema = new mongoose.Schema(
       required: [true, 'Academic year is required']
     },
     feeItems: [feeItemSchema],
+    month: {
+      type: String,
+      default: ''
+    },
+    year: {
+      type: Number
+    },
+    tuitionFee: {
+      type: Number,
+      default: 0
+    },
+    transportFee: {
+      type: Number,
+      default: 0
+    },
+    otherFee: {
+      type: Number,
+      default: 0
+    },
+    otherFeeType: {
+      type: String,
+      default: ''
+    },
+    carriedForwardFrom: {
+      month: { type: String, default: '' },
+      year: { type: Number },
+      amount: { type: Number, default: 0 }
+    },
+    carriedNote: {
+      type: String,
+      default: ''
+    },
     totalDues: {
       type: Number,
       required: true

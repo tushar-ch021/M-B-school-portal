@@ -46,8 +46,8 @@ const IDCardTemplate = forwardRef(({ student }, ref) => {
           {/* Emblem Logo */}
           <div 
             style={{
-              height: '36px',
-              width: '36px',
+              height: '48px',
+              width: '48px',
               backgroundColor: '#ffffff',
               borderRadius: '50%',
               margin: '0 auto 2px auto',
@@ -62,7 +62,7 @@ const IDCardTemplate = forwardRef(({ student }, ref) => {
             <img 
               src="/logo.png" 
               alt="BRIS Logo" 
-              style={{ height: '100%', width: '100%', objectFit: 'contain', display: 'block' }}
+              style={{ height: '100%', width: '100%', borderRadius: '50%', objectFit: 'cover', display: 'block' }}
               onError={(e) => {
                 e.target.style.display = 'none';
               }}

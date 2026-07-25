@@ -31,7 +31,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
     { name: 'New Admission', path: '/admission/new', icon: UserPlus },
     { name: 'ID Cards', path: '/id-cards', icon: Contact },
     { name: 'Transfer Certificates', path: '/tc', icon: FileBadge },
-    { name: 'Fee Management', path: '/fees', icon: Receipt }
+    { name: 'Monthly Fee Management', path: '/fees', icon: Receipt }
   ];
 
   return (
@@ -52,14 +52,16 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
         {/* Sidebar Header branding */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-navy-800">
           <div className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              alt="School Logo" 
-              className="h-9 w-9 object-contain bg-white rounded-full p-0.5"
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
+            <div className="h-12 w-12 rounded-full bg-white border-2 border-navy-700 shadow-md flex items-center justify-center overflow-hidden shrink-0">
+              <img 
+                src="/logo.png" 
+                alt="School Logo" 
+                className="h-full w-full rounded-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
             <div>
               <h1 className="font-bold text-xs leading-tight tracking-wider text-white uppercase max-w-[140px] truncate">
                 {branding.schoolName}

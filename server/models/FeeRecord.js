@@ -27,7 +27,21 @@ const feePaymentSubSchema = new mongoose.Schema({
   remark: {
     type: String,
     default: ''
-  }
+  },
+  tuitionFee: { type: Number, default: 0 },
+  transportFee: { type: Number, default: 0 },
+  otherFee: { type: Number, default: 0 },
+  otherFeeType: { type: String, default: '' },
+  carriedForwardFrom: {
+    month: { type: String, default: '' },
+    year: { type: Number },
+    amount: { type: Number, default: 0 }
+  },
+  carriedNote: { type: String, default: '' },
+  tuitionPaid: { type: Number, default: 0 },
+  transportPaid: { type: Number, default: 0 },
+  otherPaid: { type: Number, default: 0 },
+  carriedPaid: { type: Number, default: 0 }
 });
 
 const feeRecordSchema = new mongoose.Schema(
@@ -74,13 +88,40 @@ const feeRecordSchema = new mongoose.Schema(
       min: [0, 'Amount due cannot be negative'],
       default: 0
     },
+    tuitionFee: {
+      type: Number,
+      default: 0
+    },
+    transportFee: {
+      type: Number,
+      default: 0
+    },
+    otherFee: {
+      type: Number,
+      default: 0
+    },
+    otherFeeType: {
+      type: String,
+      default: ''
+    },
     amountPaid: {
       type: Number,
       required: true,
       min: [0, 'Amount paid cannot be negative'],
       default: 0
     },
-    payments: [feePaymentSubSchema]
+    payments: [feePaymentSubSchema],
+    carriedForwardTo: {
+      month: { type: String, default: '' },
+      year: { type: Number },
+      amount: { type: Number, default: 0 },
+      carriedAt: { type: Date }
+    },
+    carriedForwardFrom: {
+      month: { type: String, default: '' },
+      year: { type: Number },
+      amount: { type: Number, default: 0 }
+    }
   },
   {
     timestamps: true,
@@ -97,9 +138,9 @@ feeRecordSchema.virtual('status').get(function () {
   const paid = Number(this.amountPaid) || 0;
   const due = Number(this.amountDue) || 0;
 
-  if (due === 0 && paid === 0) return 'Not Set';
+  if (due === 0) return 'Paid';
   if (paid === 0) return 'Due';
-  if (paid >= due && due > 0) return 'Paid';
+  if (paid >= due) return 'Paid';
   return 'Partial';
 });
 

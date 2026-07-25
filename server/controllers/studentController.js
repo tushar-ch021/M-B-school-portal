@@ -1,5 +1,8 @@
+const mongoose = require('mongoose');
 const Student = require('../models/Student');
 const FeePayment = require('../models/FeePayment');
+const FeeRecord = require('../models/FeeRecord');
+const MonthlyFee = require('../models/MonthlyFee');
 const { uploadAndOptimize } = require('../utils/cloudinaryUpload');
 const { generateStudentSerial } = require('../utils/serialNoGenerator');
 const cloudinary = require('../config/cloudinary');
@@ -340,6 +343,45 @@ const updateStudent = asyncHandler(async (req, res) => {
     fieldsToUpdate,
     { new: true, runValidators: true }
   );
+
+  const classChanged = req.body.class !== undefined && req.body.class !== student.class;
+  const sectionChanged = req.body.section !== undefined && req.body.section !== student.section;
+
+  if (classChanged || sectionChanged) {
+    // 1. Cascade update class and section in Attendance records
+    await mongoose.model('Attendance').updateMany(
+      { student: student._id, type: 'student' },
+      { $set: { class: fieldsToUpdate.class, section: fieldsToUpdate.section } }
+    );
+
+    // 2. Cascade update class and section in FeeRecord, and recalculate amountDue for unpaid records
+    const feeRecords = await FeeRecord.find({ student: student._id });
+    for (const record of feeRecords) {
+      record.class = fieldsToUpdate.class;
+      record.section = fieldsToUpdate.section;
+
+      if (record.amountPaid === 0) {
+        let targetTuition = fieldsToUpdate.tuitionFee;
+        if (targetTuition === 0) {
+          // Look up new class configuration for this specific month & year
+          const feeConfig = await MonthlyFee.findOne({
+            class: fieldsToUpdate.class,
+            month: record.month,
+            year: record.year
+          });
+          targetTuition = feeConfig ? feeConfig.amountDue : 0;
+        }
+
+        const transport = fieldsToUpdate.usesTransport ? (fieldsToUpdate.transportFee || 0) : 0;
+        const other = record.otherFee || 0;
+
+        record.tuitionFee = targetTuition;
+        record.transportFee = transport;
+        record.amountDue = targetTuition + transport + other;
+      }
+      await record.save();
+    }
+  }
 
   res.status(200).json(updatedStudent);
 });

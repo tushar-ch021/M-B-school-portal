@@ -59,11 +59,11 @@ const Login = () => {
         
         {/* Header Branding section */}
         <div className="flex flex-col items-center text-center">
-          <div className="h-16 w-16 bg-navy-900 rounded-full flex items-center justify-center p-2 border-2 border-white shadow-premium">
+          <div className="h-28 w-28 bg-white rounded-full flex items-center justify-center p-1 border-4 border-navy-900 shadow-premium overflow-hidden">
             <img 
               src="/logo.png" 
               alt="Logo" 
-              className="h-full w-full object-contain"
+              className="h-full w-full rounded-full object-cover"
               onError={(e) => {
                 e.target.style.display = 'none';
               }}

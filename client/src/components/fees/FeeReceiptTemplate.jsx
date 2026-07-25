@@ -17,6 +17,111 @@ const FeeReceiptTemplate = forwardRef(({ payment }, ref) => {
     });
   };
 
+  const displayMonth = payment.month 
+    ? `${payment.month} ${payment.year || ''}`.trim()
+    : (
+        payment.remark?.match(/(?:for\s+)([A-Z][a-z]+\s+\d{4})/i)?.[1] ||
+        payment.feeItems?.[0]?.particular?.match(/(?:-\s*)([A-Z][a-z]+\s+\d{4})/i)?.[1] ||
+        payment.feeItems?.[0]?.particular?.match(/([A-Z][a-z]+\s+\d{4})/i)?.[1] ||
+        'Monthly Fee'
+      );
+
+  const getItemizedFeeItems = () => {
+    if (payment.feeItems && payment.feeItems.length > 1) {
+      return payment.feeItems;
+    }
+
+    const monthTag = displayMonth !== 'Monthly Fee' ? ` - ${displayMonth}` : '';
+    const dateVal = payment.receiptDate || payment.date || new Date();
+
+    const totalD = payment.totalDues !== undefined ? payment.totalDues : (payment.amountDue || 0);
+    const totalR = payment.totalReceived !== undefined ? payment.totalReceived : (payment.amountPaid || 0);
+
+    const transportVal = (payment.transportFee !== undefined && payment.transportFee !== null && payment.transportFee > 0)
+      ? payment.transportFee
+      : ((student.usesTransport && student.transportFee > 0) ? student.transportFee : 0);
+
+    const otherVal = payment.otherFee || 0;
+    const carriedVal = payment.carriedForwardFrom?.amount || 0;
+
+    if (transportVal > 0 || otherVal > 0 || carriedVal > 0) {
+      const tuitionD = (payment.tuitionFee !== undefined && payment.tuitionFee !== null && payment.tuitionFee > 0)
+        ? payment.tuitionFee
+        : Math.max(0, totalD - transportVal - otherVal - carriedVal);
+
+      let remR = totalR;
+
+      const tuitR = Math.min(remR, tuitionD);
+      remR = Math.max(0, remR - tuitR);
+
+      const transR = Math.min(remR, transportVal);
+      remR = Math.max(0, remR - transR);
+
+      const othR = Math.min(remR, otherVal);
+      remR = Math.max(0, remR - othR);
+
+      const carR = Math.min(remR, carriedVal);
+      remR = Math.max(0, remR - carR);
+
+      const list = [];
+      list.push({
+        particular: `Tuition Fee${monthTag}`,
+        dueDate: dateVal,
+        dues: tuitionD,
+        received: tuitR,
+        balance: Math.max(0, tuitionD - tuitR)
+      });
+
+      if (transportVal > 0) {
+        list.push({
+          particular: `Transport Fee (${student.transportRoute || 'School Bus'})${monthTag}`,
+          dueDate: dateVal,
+          dues: transportVal,
+          received: transR,
+          balance: Math.max(0, transportVal - transR)
+        });
+      }
+
+      if (otherVal > 0) {
+        list.push({
+          particular: `${payment.otherFeeType || 'Other Fee'}${monthTag}`,
+          dueDate: dateVal,
+          dues: otherVal,
+          received: othR,
+          balance: Math.max(0, otherVal - othR)
+        });
+      }
+
+      if (carriedVal > 0) {
+        list.push({
+          particular: `Previous month due (carried forward from ${payment.carriedForwardFrom?.month})${monthTag}`,
+          dueDate: dateVal,
+          dues: carriedVal,
+          received: carR,
+          balance: Math.max(0, carriedVal - carR)
+        });
+      }
+
+      return list;
+    }
+
+    if (payment.feeItems && payment.feeItems.length === 1) {
+      return payment.feeItems;
+    }
+
+    return [
+      {
+        particular: `Monthly Fee${monthTag}`,
+        dueDate: dateVal,
+        dues: totalD,
+        received: totalR,
+        balance: Math.max(0, totalD - totalR)
+      }
+    ];
+  };
+
+  const finalFeeItems = getItemizedFeeItems();
+
   return (
     <div 
       ref={ref}
@@ -27,14 +132,16 @@ const FeeReceiptTemplate = forwardRef(({ payment }, ref) => {
         {/* 1. College-style Header layout */}
         <div className="flex items-center justify-between border-b border-gray-450 pb-2">
           <div className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              alt="Logo" 
-              className="h-12 w-12 object-contain"
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
+            <div className="h-20 w-20 rounded-full bg-white border border-gray-300 flex items-center justify-center overflow-hidden p-0.5 shrink-0">
+              <img 
+                src="/logo.png" 
+                alt="Logo" 
+                className="h-full w-full rounded-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
             <div>
               <h1 className="text-sm font-black tracking-widest text-gray-950 uppercase leading-none">
                 {branding.schoolName}
@@ -102,6 +209,11 @@ const FeeReceiptTemplate = forwardRef(({ payment }, ref) => {
               <span className="flex-1 font-semibold">{student.apaarId || 'N/A'}</span>
             </div>
             <div className="flex">
+              <span className="w-28 font-bold text-navy-900">Fee for Month</span>
+              <span className="px-1">:</span>
+              <span className="flex-1 font-extrabold text-navy-900">{displayMonth}</span>
+            </div>
+            <div className="flex">
               <span className="w-28 font-bold text-gray-950">Academic Year</span>
               <span className="px-1">:</span>
               <span className="flex-1 font-semibold">{payment.academicYear}</span>
@@ -119,6 +231,13 @@ const FeeReceiptTemplate = forwardRef(({ payment }, ref) => {
           </div>
         </div>
 
+        {(payment.carriedNote || (payment.carriedForwardFrom && payment.carriedForwardFrom.amount > 0)) && (
+          <div className="mt-2 text-[10px] font-bold text-amber-950 bg-amber-50 border border-amber-300 p-1.5 rounded flex items-center gap-1.5">
+            <span>📌</span>
+            <span>{payment.carriedNote || `Includes ₹${payment.carriedForwardFrom.amount} carried forward from ${payment.carriedForwardFrom.month}`}</span>
+          </div>
+        )}
+
         {/* 4. Fee Detail Table */}
         <div className="mt-2.5">
           <h3 className="font-bold text-gray-950 uppercase tracking-widest mb-1 text-[10px]">Fee Particulars</h3>
@@ -134,23 +253,23 @@ const FeeReceiptTemplate = forwardRef(({ payment }, ref) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-300">
-              {payment.feeItems.map((item, idx) => (
+              {finalFeeItems.map((item, idx) => (
                 <tr key={idx}>
                   <td className="border border-gray-400 px-2 py-1 text-center">{idx + 1}</td>
                   <td className="border border-gray-400 px-2 py-1">{formatDate(item.dueDate)}</td>
                   <td className="border border-gray-400 px-2 py-1 font-medium">{item.particular}</td>
-                  <td className="border border-gray-400 px-2 py-1 text-right font-semibold">{item.dues.toFixed(2)}</td>
-                  <td className="border border-gray-400 px-2 py-1 text-right font-semibold text-schoolGreen-850" style={{ color: '#2e7d32' }}>{item.received.toFixed(2)}</td>
-                  <td className="border border-gray-400 px-2 py-1 text-right font-semibold text-red-650" style={{ color: '#c62828' }}>{item.balance.toFixed(2)}</td>
+                  <td className="border border-gray-400 px-2 py-1 text-right font-semibold">{(item.dues || 0).toFixed(2)}</td>
+                  <td className="border border-gray-400 px-2 py-1 text-right font-semibold text-schoolGreen-850" style={{ color: '#2e7d32' }}>{(item.received || 0).toFixed(2)}</td>
+                  <td className="border border-gray-400 px-2 py-1 text-right font-semibold text-red-650" style={{ color: '#c62828' }}>{(item.balance || 0).toFixed(2)}</td>
                 </tr>
               ))}
               
               {/* Total Summaries row */}
               <tr className="bg-gray-50 border-t-2 border-gray-400 font-bold text-gray-950">
                 <td className="border border-gray-400 px-2 py-1 text-right" colSpan={3}>Total</td>
-                <td className="border border-gray-400 px-2 py-1 text-right">{payment.totalDues.toFixed(2)}</td>
-                <td className="border border-gray-400 px-2 py-1 text-right" style={{ color: '#2e7d32' }}>{payment.totalReceived.toFixed(2)}</td>
-                <td className="border border-gray-400 px-2 py-1 text-right text-red-650" style={{ color: '#c62828' }}>{payment.totalBalance.toFixed(2)}</td>
+                <td className="border border-gray-400 px-2 py-1 text-right">{(payment.totalDues !== undefined ? payment.totalDues : (payment.amountDue || 0)).toFixed(2)}</td>
+                <td className="border border-gray-400 px-2 py-1 text-right" style={{ color: '#2e7d32' }}>{(payment.totalReceived !== undefined ? payment.totalReceived : (payment.amountPaid || 0)).toFixed(2)}</td>
+                <td className="border border-gray-400 px-2 py-1 text-right text-red-650" style={{ color: '#c62828' }}>{(payment.totalBalance !== undefined ? payment.totalBalance : (payment.remainingBalance || 0)).toFixed(2)}</td>
               </tr>
               {/* Adjustable row */}
               <tr className="font-bold text-gray-500">

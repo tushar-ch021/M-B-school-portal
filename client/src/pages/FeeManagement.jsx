@@ -13,12 +13,14 @@ import FeeHistoryTable from '../components/fees/FeeHistoryTable';
 import FeeReceiptTemplate from '../components/fees/FeeReceiptTemplate';
 import { downloadPDF } from '../utils/generatePDF';
 import { printElement } from '../utils/printElement';
+import { useBranding } from '../utils/brandingConfig';
 import { IndianRupee, Printer, Download, Calendar, Users, FileText, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const MONTHS = ['April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March'];
 
 const FeeManagement = () => {
+  const { branding } = useBranding();
   const [searchParams, setSearchParams] = useSearchParams();
   const studentIdParam = searchParams.get('studentId');
 
@@ -67,8 +69,13 @@ const FeeManagement = () => {
       .then((res) => {
         const stList = res?.students || res?.data?.students || [];
         setStudents(stList);
-        if (stList.length > 0 && !monthlyStudentId) {
-          setMonthlyStudentId(stList[0]._id);
+        if (stList.length > 0) {
+          const exists = stList.some(st => st._id === monthlyStudentId);
+          if (!exists) {
+            setMonthlyStudentId(stList[0]._id);
+          }
+        } else {
+          setMonthlyStudentId('');
         }
       })
       .catch(() => toast.error('Failed to load students'))
@@ -170,7 +177,7 @@ const FeeManagement = () => {
         <div>
           <h2 className="text-2xl font-black text-navy-900 flex items-center gap-2">
             <IndianRupee className="h-7 w-7 text-schoolGreen-800" />
-            Indian School Monthly Fee Management
+            {branding.schoolName} Monthly Fee Management
           </h2>
           <p className="text-xs text-gray-500 mt-1">
             Admin month-by-month fee configuration, class payment status board, and student 12-month matrices.

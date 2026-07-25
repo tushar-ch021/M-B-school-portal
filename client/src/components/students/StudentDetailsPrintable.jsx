@@ -24,14 +24,16 @@ const StudentDetailsPrintable = forwardRef(({ student }, ref) => {
       {/* 1. School Header Block */}
       <div className="flex items-center justify-between border-b-2 border-navy-900 pb-2 mb-4">
         <div className="flex items-center gap-3">
-          <img 
-            src="/logo.png" 
-            alt="School Logo" 
-            className="h-14 w-14 object-contain"
-            onError={(e) => {
-              e.target.style.display = 'none';
-            }}
-          />
+          <div className="h-20 w-20 rounded-full bg-white border border-gray-300 flex items-center justify-center overflow-hidden p-0.5 shrink-0">
+            <img 
+              src="/logo.png" 
+              alt="School Logo" 
+              className="h-full w-full rounded-full object-cover"
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
+          </div>
           <div>
             <h1 className="text-lg font-black text-navy-900 leading-tight uppercase tracking-wider">
               {branding.schoolName}

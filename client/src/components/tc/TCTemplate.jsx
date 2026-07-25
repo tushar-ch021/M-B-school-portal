@@ -49,14 +49,16 @@ const TCTemplate = forwardRef(({ student }, ref) => {
         {/* 1. School Header information */}
         <div className="text-center border-b border-navy-900/10 pb-4">
           <div className="flex justify-center mb-2">
-            <img 
-              src="/logo.png" 
-              alt="School emblem" 
-              className="h-14 w-14 object-contain"
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
+            <div className="h-24 w-24 rounded-full bg-white border border-navy-900/20 flex items-center justify-center overflow-hidden p-0.5 shadow-xs">
+              <img 
+                src="/logo.png" 
+                alt="School emblem" 
+                className="h-full w-full rounded-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
           </div>
           <h1 className="text-lg font-black tracking-widest text-navy-900 uppercase">
             {branding.schoolName}

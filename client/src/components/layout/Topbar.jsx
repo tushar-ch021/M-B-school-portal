@@ -18,7 +18,7 @@ const Topbar = ({ toggleSidebar }) => {
     if (path.includes('/students/profile/')) return 'Student Profile Details';
     if (path === '/id-cards') return 'ID Cards Center';
     if (path === '/tc') return 'Transfer Certificates Portal';
-    if (path === '/fees') return 'Fee Management and Invoicing';
+    if (path === '/fees') return `${branding.schoolName} Monthly Fee Management`;
     return branding.schoolName;
   };
 
