@@ -104,6 +104,7 @@ const collectFee = asyncHandler(async (req, res) => {
   student.tuitionFee = Math.max(0, student.tuitionFee - totalReceived);
   await student.save();
 
+  await feePayment.populate('student');
   res.status(201).json(feePayment);
 });
 
@@ -120,6 +121,7 @@ const getFeeHistoryByStudent = asyncHandler(async (req, res) => {
   }
 
   const payments = await FeePayment.find({ student: studentId })
+    .populate('student')
     .populate('collectedBy', 'name email')
     .sort({ createdAt: -1 });
 
@@ -540,6 +542,7 @@ const getClassMonthlyFeeOverview = asyncHandler(async (req, res) => {
       transportFee: transport,
       otherFee: other,
       otherFeeType: otherType,
+      otherFees: rec ? (rec.otherFees || []) : [],
       amountPaid,
       balance: Math.max(0, amountDue - amountPaid),
       status,
@@ -668,6 +671,7 @@ const getStudentMonthlyFees = asyncHandler(async (req, res) => {
       transportFee,
       otherFee,
       otherFeeType,
+      otherFees: rec ? (rec.otherFees || []) : [],
       amountPaid,
       status,
       payments: rec ? rec.payments : [],
@@ -690,7 +694,7 @@ const getStudentMonthlyFees = asyncHandler(async (req, res) => {
 const collectMonthlyFeePayment = asyncHandler(async (req, res) => {
   const {
     studentId, month, year, amount, paymentMode, remark, carryForwardPreviousDue,
-    tuitionPaid, transportPaid, otherPaid, carriedPaid
+    tuitionPaid, transportPaid, otherPaid, carriedPaid, otherFeesPaid
   } = req.body;
 
   if (!studentId || !month || !year || !amount || Number(amount) <= 0) {
@@ -822,8 +826,54 @@ const collectMonthlyFeePayment = asyncHandler(async (req, res) => {
   remPayment = Math.max(0, remPayment - transportReceived);
 
   let otherDues = recOther;
-  let otherReceived = (otherPaid !== undefined && otherPaid !== null) ? Number(otherPaid) : Math.min(remPayment, otherDues);
+  let otherReceived = 0;
+  if (otherFeesPaid !== undefined && Array.isArray(otherFeesPaid)) {
+    otherReceived = otherFeesPaid.reduce((sum, item) => sum + (Number(item.paid) || 0), 0);
+  } else {
+    otherReceived = (otherPaid !== undefined && otherPaid !== null) ? Number(otherPaid) : Math.min(remPayment, otherDues);
+  }
   remPayment = Math.max(0, remPayment - otherReceived);
+
+  let remOtherForGreedy = otherReceived;
+  const paymentOtherFees = [];
+
+  if (record.otherFees && record.otherFees.length > 0) {
+    record.otherFees = record.otherFees.map(fee => {
+      let paidThisTime = 0;
+      if (otherFeesPaid !== undefined && Array.isArray(otherFeesPaid)) {
+        const match = otherFeesPaid.find(ofp => ofp.category === fee.category);
+        paidThisTime = match ? (Number(match.paid) || 0) : 0;
+      } else {
+        const feeDues = fee.amount || 0;
+        const currentPaid = fee.paid || 0;
+        const remainingDues = Math.max(0, feeDues - currentPaid);
+        paidThisTime = Math.min(remOtherForGreedy, remainingDues);
+        remOtherForGreedy = Math.max(0, remOtherForGreedy - paidThisTime);
+      }
+      fee.paid = (fee.paid || 0) + paidThisTime;
+
+      paymentOtherFees.push({
+        category: fee.category,
+        amount: fee.amount,
+        paid: paidThisTime
+      });
+
+      return fee;
+    });
+
+    if (remOtherForGreedy > 0 && paymentOtherFees.length > 0) {
+      paymentOtherFees[paymentOtherFees.length - 1].paid += remOtherForGreedy;
+      const lastCategory = paymentOtherFees[paymentOtherFees.length - 1].category;
+      const recFee = record.otherFees.find(of => of.category === lastCategory);
+      if (recFee) recFee.paid += remOtherForGreedy;
+    }
+  } else {
+    paymentOtherFees.push({
+      category: recOtherType,
+      amount: otherDues,
+      paid: otherReceived
+    });
+  }
 
   record.payments.push({
     amount: paymentAmount,
@@ -835,6 +885,7 @@ const collectMonthlyFeePayment = asyncHandler(async (req, res) => {
     transportFee: recTransport,
     otherFee: recOther,
     otherFeeType: recOtherType,
+    otherFees: paymentOtherFees,
     carriedForwardFrom: record.carriedForwardFrom?.amount > 0 ? record.carriedForwardFrom : undefined,
     carriedNote: carriedNoteStr,
     tuitionPaid: tuitionReceived,
@@ -851,7 +902,6 @@ const collectMonthlyFeePayment = asyncHandler(async (req, res) => {
   let carriedBalance = Math.max(0, carriedDues - carriedReceived);
   let tuitionBalance = Math.max(0, tuitionDues - tuitionReceived);
   let transportBalance = Math.max(0, transportDues - transportReceived);
-  let otherBalance = Math.max(0, otherDues - otherReceived);
 
   const feeItems = [
     {
@@ -874,12 +924,20 @@ const collectMonthlyFeePayment = asyncHandler(async (req, res) => {
   }
 
   if (otherDues > 0) {
-    feeItems.push({
-      particular: `${recOtherType} - ${month} ${actualYear}`,
-      dueDate: new Date(),
-      dues: otherDues,
-      received: otherReceived,
-      balance: otherBalance
+    paymentOtherFees.forEach(fee => {
+      const feeDues = fee.amount || 0;
+      const feeReceived = fee.paid || 0;
+      
+      const recFee = record.otherFees && record.otherFees.find(of => of.category === fee.category);
+      const feeBalance = recFee ? Math.max(0, feeDues - recFee.paid) : Math.max(0, feeDues - feeReceived);
+
+      feeItems.push({
+        particular: `${fee.category} - ${month} ${actualYear}`,
+        dueDate: new Date(),
+        dues: feeDues,
+        received: feeReceived,
+        balance: feeBalance
+      });
     });
   }
 
@@ -905,6 +963,7 @@ const collectMonthlyFeePayment = asyncHandler(async (req, res) => {
     transportFee: recTransport,
     otherFee: recOther,
     otherFeeType: recOtherType,
+    otherFees: record.otherFees || [],
     carriedForwardFrom: record.carriedForwardFrom?.amount > 0 ? record.carriedForwardFrom : undefined,
     carriedNote: carriedNoteStr,
     feeItems,
@@ -915,6 +974,8 @@ const collectMonthlyFeePayment = asyncHandler(async (req, res) => {
     remark: remark || `Monthly Fee payment for ${month}`,
     collectedBy: req.admin._id
   });
+
+  await feePayment.populate('student');
 
   res.status(200).json({
     success: true,
@@ -928,7 +989,7 @@ const collectMonthlyFeePayment = asyncHandler(async (req, res) => {
 // @route   PUT /api/fees/monthly/student-fee
 // @access  Private (Admin)
 const setIndividualStudentMonthlyFee = asyncHandler(async (req, res) => {
-  const { studentId, month, year, amountDue, tuitionFee, transportFee, otherFee, otherFeeType } = req.body;
+  const { studentId, month, year, amountDue, tuitionFee, transportFee, otherFee, otherFeeType, otherFees } = req.body;
 
   if (!studentId || !month || !year) {
     res.status(400);
@@ -943,10 +1004,20 @@ const setIndividualStudentMonthlyFee = asyncHandler(async (req, res) => {
 
   const parsedTuition = tuitionFee !== undefined ? Number(tuitionFee) : undefined;
   const parsedTransport = transportFee !== undefined ? Number(transportFee) : undefined;
-  const parsedOther = otherFee !== undefined ? Number(otherFee) : 0;
+  
+  let parsedOther = 0;
+  let computedOtherFeeType = '';
 
-  const totalAmountDue = (parsedTuition !== undefined || parsedTransport !== undefined || parsedOther > 0)
-    ? ((parsedTuition || 0) + (parsedTransport || 0) + (parsedOther || 0))
+  if (otherFees !== undefined && Array.isArray(otherFees)) {
+    parsedOther = otherFees.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    computedOtherFeeType = otherFees.map(item => item.category).filter(Boolean).join(', ');
+  } else {
+    parsedOther = otherFee !== undefined ? Number(otherFee) : 0;
+    computedOtherFeeType = otherFeeType || '';
+  }
+
+  const totalAmountDue = (parsedTuition !== undefined || parsedTransport !== undefined || otherFees !== undefined || otherFee !== undefined)
+    ? ((parsedTuition || 0) + (parsedTransport || 0) + parsedOther)
     : Number(amountDue);
 
   if (isNaN(totalAmountDue) || totalAmountDue < 0) {
@@ -988,7 +1059,8 @@ const setIndividualStudentMonthlyFee = asyncHandler(async (req, res) => {
       tuitionFee: parsedTuition !== undefined ? parsedTuition : totalAmountDue,
       transportFee: parsedTransport !== undefined ? parsedTransport : 0,
       otherFee: parsedOther,
-      otherFeeType: otherFeeType || '',
+      otherFeeType: computedOtherFeeType,
+      otherFees: otherFees !== undefined ? otherFees : (otherFee !== undefined ? [{ category: computedOtherFeeType || 'Other Fee', amount: parsedOther }] : []),
       amountPaid: 0,
       payments: []
     });
@@ -996,8 +1068,13 @@ const setIndividualStudentMonthlyFee = asyncHandler(async (req, res) => {
     record.amountDue = totalAmountDue + (record.carriedForwardFrom?.amount || 0);
     if (parsedTuition !== undefined) record.tuitionFee = parsedTuition;
     if (parsedTransport !== undefined) record.transportFee = parsedTransport;
-    if (parsedOther !== undefined) record.otherFee = parsedOther;
-    if (otherFeeType !== undefined) record.otherFeeType = otherFeeType;
+    record.otherFee = parsedOther;
+    record.otherFeeType = computedOtherFeeType;
+    if (otherFees !== undefined) {
+      record.otherFees = otherFees;
+    } else if (otherFee !== undefined) {
+      record.otherFees = [{ category: computedOtherFeeType || 'Other Fee', amount: parsedOther }];
+    }
     record.academicYear = targetYear;
     record.year = actualYear;
     record.isConfigured = true;

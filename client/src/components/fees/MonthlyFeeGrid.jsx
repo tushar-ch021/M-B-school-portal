@@ -38,8 +38,7 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
   const [editFeeAmount, setEditFeeAmount] = useState('');
   const [tuitionFeeInput, setTuitionFeeInput] = useState('');
   const [transportFeeInput, setTransportFeeInput] = useState('');
-  const [otherFeeInput, setOtherFeeInput] = useState('0');
-  const [otherFeeTypeInput, setOtherFeeTypeInput] = useState('Exam Fee');
+  const [otherFeesInput, setOtherFeesInput] = useState([{ category: 'Exam Fee', amount: '0' }]);
   const [savingFee, setSavingFee] = useState(false);
 
   const fetchStudentMatrix = useCallback(() => {
@@ -80,15 +79,25 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
 
     setTuitionFeeInput(tuition.toString());
     setTransportFeeInput(transport.toString());
-    setOtherFeeInput(other.toString());
-    setOtherFeeTypeInput(otherType);
+
+    let otherFeesList = [];
+    if (item.otherFees && item.otherFees.length > 0) {
+      otherFeesList = item.otherFees.map(of => ({ category: of.category, amount: of.amount.toString() }));
+    } else if (other > 0) {
+      otherFeesList = [{ category: otherType, amount: other.toString() }];
+    } else {
+      otherFeesList = [{ category: 'Exam Fee', amount: '0' }];
+    }
+    setOtherFeesInput(otherFeesList);
+
     setEditFeeAmount(currentTotal > 0 ? currentTotal.toString() : '');
     setEditFeeModalOpen(true);
   };
 
   const handleSaveEditFeeSubmit = async (e) => {
     e.preventDefault();
-    const computedTotal = (Number(tuitionFeeInput) || 0) + (Number(transportFeeInput) || 0) + (Number(otherFeeInput) || 0);
+    const totalOtherFeeInput = otherFeesInput.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const computedTotal = (Number(tuitionFeeInput) || 0) + (Number(transportFeeInput) || 0) + totalOtherFeeInput;
 
     if (computedTotal < 0 || isNaN(computedTotal)) {
       toast.error('Please enter valid non-negative fee amounts');
@@ -106,8 +115,7 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
         academicYear: data.academicYear,
         tuitionFee: Number(tuitionFeeInput) || 0,
         transportFee: Number(transportFeeInput) || 0,
-        otherFee: Number(otherFeeInput) || 0,
-        otherFeeType: otherFeeTypeInput || '',
+        otherFees: otherFeesInput.map(of => ({ category: of.category, amount: Number(of.amount) || 0 })),
         amountDue: computedTotal
       });
 
@@ -123,14 +131,15 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
 
   const [tuitionPayInput, setTuitionPayInput] = useState('0');
   const [transportPayInput, setTransportPayInput] = useState('0');
-  const [otherPayInput, setOtherPayInput] = useState('0');
+  const [otherPayInputs, setOtherPayInputs] = useState({});
   const [carriedPayInput, setCarriedPayInput] = useState('0');
   const [carryForwardChecked, setCarryForwardChecked] = useState(false);
 
-  const totalPaymentSum = (Number(tuitionPayInput) || 0) + (Number(transportPayInput) || 0) + (Number(otherPayInput) || 0) + (carryForwardChecked ? (Number(carriedPayInput) || 0) : 0);
+  const totalOtherPaymentSum = Object.values(otherPayInputs).reduce((sum, val) => sum + (Number(val) || 0), 0);
+  const totalPaymentSum = (Number(tuitionPayInput) || 0) + (Number(transportPayInput) || 0) + totalOtherPaymentSum + (carryForwardChecked ? (Number(carriedPayInput) || 0) : 0);
 
   const computeCategoryBreakdownInputs = (item, isCarryChecked, prevDueVal) => {
-    if (!item) return { tuition: '0', transport: '0', other: '0', carried: '0' };
+    if (!item) return { tuition: '0', transport: '0', other: '0', carried: '0', otherFeesBreakdown: [] };
     const st = data?.student || {};
 
     const transportVal = (item.transportFee !== undefined && item.transportFee !== null && item.transportFee > 0)
@@ -189,11 +198,27 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
       dueCarried = Math.max(0, carriedVal - paidCarried);
     }
 
+    let otherFeesBreakdown = [];
+    if (item.otherFees && item.otherFees.length > 0) {
+      item.otherFees.forEach(fee => {
+        otherFeesBreakdown.push({
+          category: fee.category,
+          due: Math.max(0, fee.amount - (fee.paid || 0))
+        });
+      });
+    } else if (otherVal > 0) {
+      otherFeesBreakdown.push({
+        category: item.otherFeeType || 'Other Fee',
+        due: dueOther
+      });
+    }
+
     return {
       tuition: dueTuition.toString(),
       transport: dueTransport.toString(),
       other: dueOther.toString(),
-      carried: dueCarried.toString()
+      carried: dueCarried.toString(),
+      otherFeesBreakdown
     };
   };
 
@@ -203,7 +228,13 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
     const inputs = computeCategoryBreakdownInputs(selectedMonthItem, isChecked, selectedPrevDue);
     setTuitionPayInput(inputs.tuition);
     setTransportPayInput(inputs.transport);
-    setOtherPayInput(inputs.other);
+    
+    const newOtherInputs = {};
+    inputs.otherFeesBreakdown.forEach(item => {
+      newOtherInputs[item.category] = item.due.toString();
+    });
+    setOtherPayInputs(newOtherInputs);
+
     setCarriedPayInput(inputs.carried);
   };
 
@@ -224,7 +255,13 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
     const inputs = computeCategoryBreakdownInputs(item, false, prevDue);
     setTuitionPayInput(inputs.tuition);
     setTransportPayInput(inputs.transport);
-    setOtherPayInput(inputs.other);
+    
+    const newOtherInputs = {};
+    inputs.otherFeesBreakdown.forEach(of => {
+      newOtherInputs[of.category] = of.due.toString();
+    });
+    setOtherPayInputs(newOtherInputs);
+
     setCarriedPayInput(inputs.carried);
 
     setPaymentMode('Cash');
@@ -250,7 +287,11 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
         amount: totalPaymentSum,
         tuitionPaid: Number(tuitionPayInput) || 0,
         transportPaid: Number(transportPayInput) || 0,
-        otherPaid: Number(otherPayInput) || 0,
+        otherPaid: totalOtherPaymentSum,
+        otherFeesPaid: Object.keys(otherPayInputs).map(category => ({
+          category,
+          paid: Number(otherPayInputs[category]) || 0
+        })),
         carriedPaid: Number(carriedPayInput) || 0,
         paymentMode,
         remark: remark.trim() || `Monthly Fee for ${selectedMonthItem.month}`,
@@ -443,11 +484,20 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
                         <span>₹{transVal}</span>
                       </div>
                     )}
-                    {otherVal > 0 && (
-                      <div className="flex justify-between text-blue-900 font-medium">
-                        <span>{selectedMonthItem.otherFeeType || 'Other Fee'}:</span>
-                        <span>₹{otherVal}</span>
-                      </div>
+                    {selectedMonthItem.otherFees && selectedMonthItem.otherFees.length > 0 ? (
+                      selectedMonthItem.otherFees.map((fee, idx) => (
+                        <div key={idx} className="flex justify-between text-blue-900 font-medium">
+                          <span>{fee.category}:</span>
+                          <span>₹{fee.amount}</span>
+                        </div>
+                      ))
+                    ) : (
+                      otherVal > 0 && (
+                        <div className="flex justify-between text-blue-900 font-medium">
+                          <span>{selectedMonthItem.otherFeeType || 'Other Fee'}:</span>
+                          <span>₹{otherVal}</span>
+                        </div>
+                      )
                     )}
                   </>
                 );
@@ -522,20 +572,25 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
                   </div>
                 )}
 
-                {selectedMonthItem.otherFee > 0 && (
-                  <div>
+                {Object.keys(otherPayInputs).map((category) => (
+                  <div key={category}>
                     <label className="block text-[10px] font-bold text-blue-900 uppercase tracking-wider mb-1">
-                      {selectedMonthItem.otherFeeType || 'Other Fee'} Payment (₹)
+                      {category} Payment (₹)
                     </label>
                     <input
                       type="number"
                       min="0"
-                      value={otherPayInput}
-                      onChange={(e) => setOtherPayInput(e.target.value)}
+                      value={otherPayInputs[category]}
+                      onChange={(e) => {
+                        setOtherPayInputs({
+                          ...otherPayInputs,
+                          [category]: e.target.value
+                        });
+                      }}
                       className="w-full rounded-lg border border-blue-300 bg-blue-50/40 px-3 py-2 text-xs font-bold text-navy-900 focus:border-navy-900 focus:ring-1 focus:ring-navy-900"
                     />
                   </div>
-                )}
+                ))}
 
                 {((carryForwardChecked && selectedPrevDue > 0) || (selectedMonthItem?.carriedForwardFrom?.amount > 0)) && (
                   <div>
@@ -664,42 +719,70 @@ const MonthlyFeeGrid = ({ studentId, academicYear }) => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-1">
-                    Other Fee Category
-                  </label>
-                  <select
-                    value={otherFeeTypeInput}
-                    onChange={(e) => setOtherFeeTypeInput(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-900 focus:border-navy-900 focus:ring-1 focus:ring-navy-900"
+              <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50/50">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="block text-[10px] font-bold text-gray-700 uppercase tracking-wider">
+                    Other Fee Categories
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setOtherFeesInput([...otherFeesInput, { category: 'Exam Fee', amount: '0' }])}
+                    className="text-[10px] font-bold text-navy-900 hover:underline flex items-center gap-1"
                   >
-                    {['Exam Fee', 'Admission Fee', 'Annual Fee', 'Activity Fee', 'Computer / Lab Fee', 'Late Fee', 'Miscellaneous'].map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
+                    + Add Category
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-700 uppercase tracking-wider mb-1">
-                    Other Fee Amount (₹)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="50"
-                    value={otherFeeInput}
-                    onChange={(e) => setOtherFeeInput(e.target.value)}
-                    placeholder="e.g. 200"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-xs font-bold text-gray-900 focus:border-navy-900 focus:ring-1 focus:ring-navy-900"
-                  />
-                </div>
+                {otherFeesInput.map((fee, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <div className="flex-1">
+                      <select
+                        value={fee.category}
+                        onChange={(e) => {
+                          const newList = [...otherFeesInput];
+                          newList[idx].category = e.target.value;
+                          setOtherFeesInput(newList);
+                        }}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-900 focus:border-navy-900 focus:ring-1 focus:ring-navy-900 bg-white"
+                      >
+                        {['Exam Fee', 'Admission Fee', 'Annual Fee', 'Activity Fee', 'Computer / Lab Fee', 'Late Fee', 'Miscellaneous'].map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="w-1/3">
+                      <input
+                        type="number"
+                        min="0"
+                        step="50"
+                        value={fee.amount}
+                        onChange={(e) => {
+                          const newList = [...otherFeesInput];
+                          newList[idx].amount = e.target.value;
+                          setOtherFeesInput(newList);
+                        }}
+                        placeholder="Amount"
+                        className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-bold text-gray-900 focus:border-navy-900 focus:ring-1 focus:ring-navy-900 bg-white"
+                      />
+                    </div>
+                    {otherFeesInput.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOtherFeesInput(otherFeesInput.filter((_, i) => i !== idx));
+                        }}
+                        className="text-red-500 hover:text-red-700 text-xs font-bold p-1"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
 
               <div className="bg-navy-900 text-white p-3 rounded-lg flex items-center justify-between font-bold text-xs mt-2">
                 <span>Calculated Total Month Fee:</span>
                 <span className="text-sm font-extrabold text-amber-300">
-                  ₹{(Number(tuitionFeeInput) || 0) + (Number(transportFeeInput) || 0) + (Number(otherFeeInput) || 0)}
+                  ₹{(Number(tuitionFeeInput) || 0) + (Number(transportFeeInput) || 0) + otherFeesInput.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)}
                 </span>
               </div>
             </div>

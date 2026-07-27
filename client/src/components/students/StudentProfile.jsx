@@ -19,7 +19,8 @@ const StudentProfile = ({
   onIssueTC, 
   onGenerateID, 
   onPrintDetails,
-  onRemove
+  onRemove,
+  onFail
 }) => {
   if (!student) return null;
 
@@ -41,9 +42,16 @@ const StudentProfile = ({
       );
     }
     return (
-      <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800 border border-green-200">
-        Active Student
-      </span>
+      <div className="flex gap-2">
+        <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800 border border-green-200">
+          Active Student
+        </span>
+        {student.reattemptCount > 0 && (
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200">
+            ⚠️ Reattempt (Count: {student.reattemptCount})
+          </span>
+        )}
+      </div>
     );
   };
 
@@ -147,6 +155,21 @@ const StudentProfile = ({
                 <UserX className="h-4 w-4" />
                 Remove Student
               </button>
+
+              {student.promotionStatus === 'Failed' ? (
+                <div className="flex-1 md:w-44 flex items-center justify-center gap-2 rounded-lg border border-red-650 bg-red-50 px-4 py-2.5 text-xs font-bold text-red-950 cursor-not-allowed">
+                  <UserX className="h-4 w-4 text-red-700" />
+                  Failed/Detained
+                </div>
+              ) : (
+                <button
+                  onClick={onFail}
+                  className="flex-1 md:w-44 flex items-center justify-center gap-2 rounded-lg bg-red-800 px-4 py-2.5 text-xs font-bold text-white hover:bg-red-900 transition-colors"
+                >
+                  <UserX className="h-4 w-4" />
+                  Fail Student
+                </button>
+              )}
             </>
           )}
         </div>
@@ -222,6 +245,18 @@ const StudentProfile = ({
               <dt className="text-xs font-semibold text-gray-400">Date of Admission</dt>
               <dd className="mt-0.5 font-medium text-gray-900">{formatDate(student.admissionDate)}</dd>
             </div>
+            {student.promotionStatus === 'Failed' && (
+              <>
+                <div>
+                  <dt className="text-xs font-semibold text-red-500">Detained Reason</dt>
+                  <dd className="mt-0.5 font-medium text-red-950">{student.failReason || 'N/A'}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-semibold text-red-500">Detained Marks / Remarks</dt>
+                  <dd className="mt-0.5 font-medium text-red-950">{student.failMarks || 'N/A'}</dd>
+                </div>
+              </>
+            )}
           </dl>
         </div>
 

@@ -33,6 +33,10 @@ const app = express();
 
 // Connect to MongoDB Database
 connectDB().then(() => {
+  // Start automated promotion scheduler
+  const { startPromotionScheduler } = require('./utils/promotionScheduler');
+  startPromotionScheduler();
+
   // Seed first admin if database is empty
   const Admin = require('./models/Admin');
   const bcrypt = require('bcryptjs');

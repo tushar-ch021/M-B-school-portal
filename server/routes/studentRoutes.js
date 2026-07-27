@@ -9,7 +9,8 @@ const {
   deleteStudent,
   removeStudent,
   getRemovedStudents,
-  restoreStudent
+  restoreStudent,
+  failStudent
 } = require('../controllers/studentController');
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
@@ -96,5 +97,6 @@ router.route('/:id')
 // Soft-remove and restore operations
 router.put('/:id/remove', protect, removeStudent);
 router.put('/:id/restore', protect, restoreStudent);
+router.put('/:id/fail', protect, failStudent);
 
 module.exports = router;

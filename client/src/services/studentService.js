@@ -79,6 +79,11 @@ const studentService = {
   restoreStudent: async (id) => {
     const response = await api.put(`/students/${id}/restore`);
     return response.data;
+  },
+
+  failStudent: async (id, failData) => {
+    const response = await api.put(`/students/${id}/fail`, failData);
+    return response.data;
   }
 };
 

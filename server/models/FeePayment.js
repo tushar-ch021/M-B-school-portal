@@ -71,6 +71,13 @@ const feePaymentSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    otherFees: [
+      {
+        category: { type: String, default: '' },
+        amount: { type: Number, default: 0 },
+        paid: { type: Number, default: 0 }
+      }
+    ],
     carriedForwardFrom: {
       month: { type: String, default: '' },
       year: { type: Number },

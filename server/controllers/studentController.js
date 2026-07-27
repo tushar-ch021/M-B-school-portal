@@ -518,6 +518,31 @@ const restoreStudent = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, message: 'Student has been restored successfully', student: updatedStudent });
 });
 
+// @desc    Mark a student as failed / detained for class promotion
+// @route   PUT /api/students/:id/fail
+// @access  Private (Admin)
+const failStudent = asyncHandler(async (req, res) => {
+  const { reason, marks } = req.body;
+
+  const student = await Student.findById(req.params.id);
+  if (!student) {
+    res.status(404);
+    throw new Error('Student not found');
+  }
+
+  student.promotionStatus = 'Failed';
+  student.failReason = reason || 'Academic performance';
+  student.failMarks = marks || '';
+  
+  await student.save();
+
+  res.status(200).json({
+    success: true,
+    message: `${student.firstName} ${student.lastName} has been flagged as failed/detained.`,
+    student
+  });
+});
+
 module.exports = {
   admitStudent,
   getStudents,
@@ -526,5 +551,6 @@ module.exports = {
   deleteStudent,
   removeStudent,
   getRemovedStudents,
-  restoreStudent
+  restoreStudent,
+  failStudent
 };

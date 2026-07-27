@@ -32,6 +32,13 @@ const feePaymentSubSchema = new mongoose.Schema({
   transportFee: { type: Number, default: 0 },
   otherFee: { type: Number, default: 0 },
   otherFeeType: { type: String, default: '' },
+  otherFees: [
+    {
+      category: { type: String, default: '' },
+      amount: { type: Number, default: 0 },
+      paid: { type: Number, default: 0 }
+    }
+  ],
   carriedForwardFrom: {
     month: { type: String, default: '' },
     year: { type: Number },
@@ -104,6 +111,13 @@ const feeRecordSchema = new mongoose.Schema(
       type: String,
       default: ''
     },
+    otherFees: [
+      {
+        category: { type: String, default: '' },
+        amount: { type: Number, default: 0 },
+        paid: { type: Number, default: 0 }
+      }
+    ],
     amountPaid: {
       type: Number,
       required: true,

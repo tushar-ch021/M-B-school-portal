@@ -38,6 +38,9 @@ const StudentProfilePage = () => {
   const [detailsPrintOpen, setDetailsPrintOpen] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removeReason, setRemoveReason] = useState('');
+  const [failOpen, setFailOpen] = useState(false);
+  const [failReasonInput, setFailReasonInput] = useState('');
+  const [failMarksInput, setFailMarksInput] = useState('');
 
   // Reprint Receipt states
   const [reprintPayment, setReprintPayment] = useState(null);
@@ -120,6 +123,24 @@ const StudentProfilePage = () => {
       navigate('/students'); // Redirect back to active student directory
     } catch (err) {
       toast.error(err?.response?.data?.message || err.message || 'Failed to remove student', { id: toastId });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleFailConfirm = async () => {
+    setSubmitting(true);
+    const toastId = toast.loading('Flagging student as failed/detained...');
+    try {
+      await studentService.failStudent(student._id, {
+        reason: failReasonInput.trim(),
+        marks: failMarksInput.trim()
+      });
+      toast.success(`${student.firstName} ${student.lastName} has been flagged as failed/detained.`, { id: toastId });
+      setFailOpen(false);
+      fetchStudentData(); // Reload student profile data
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || 'Failed to flag student', { id: toastId });
     } finally {
       setSubmitting(false);
     }
@@ -244,6 +265,11 @@ const StudentProfilePage = () => {
             onGenerateID={() => setIdCardOpen(true)}
             onPrintDetails={() => setDetailsPrintOpen(true)}
             onRemove={() => setRemoveOpen(true)}
+            onFail={() => {
+              setFailReasonInput('');
+              setFailMarksInput('');
+              setFailOpen(true);
+            }}
           />
 
           {/* Billing Transaction Receipt history ledger */}
@@ -425,6 +451,72 @@ const StudentProfilePage = () => {
               className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
             >
               {submitting ? 'Removing...' : 'Remove Student'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Fail / Detain Student Modal */}
+      <Modal
+        isOpen={failOpen}
+        onClose={() => setFailOpen(false)}
+        title={`Fail/Detain Student — ${student.firstName} ${student.lastName}`}
+        size="sm"
+      >
+        <div className="space-y-4 text-xs font-semibold text-gray-700">
+          <div className="bg-red-50 text-red-950 p-3 rounded-lg border border-red-200 flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-red-650 shrink-0 mt-0.5" style={{ color: '#c62828' }} />
+            <div>
+              <p className="font-extrabold" style={{ color: '#c62828' }}>Warning</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-gray-600">
+                This student will not be promoted to the next class during the May 1st automated promotion cycle. They will repeat class <strong>{student.class}</strong>.
+              </p>
+            </div>
+          </div>
+
+          <div className="w-full text-left">
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+              Reason for Detainment / Failure <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Low attendance, failed final exam"
+              value={failReasonInput}
+              onChange={(e) => setFailReasonInput(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-navy-900 focus:outline-none focus:ring-1 focus:ring-navy-900"
+            />
+          </div>
+
+          <div className="w-full text-left">
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+              Marks / Remarks (Optional)
+            </label>
+            <textarea
+              placeholder="e.g. Scored 32% in Mathematics"
+              value={failMarksInput}
+              onChange={(e) => setFailMarksInput(e.target.value)}
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-navy-900 focus:outline-none focus:ring-1 focus:ring-navy-900 resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 justify-end pt-2 border-t border-gray-150">
+            <button
+              type="button"
+              onClick={() => setFailOpen(false)}
+              disabled={submitting}
+              className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={submitting || !failReasonInput.trim()}
+              onClick={handleFailConfirm}
+              className="px-4 py-2 rounded-lg bg-red-700 text-xs font-bold text-white hover:bg-red-800 disabled:opacity-50"
+              style={{ backgroundColor: '#c62828' }}
+            >
+              {submitting ? 'Confirming...' : 'Confirm Fail'}
             </button>
           </div>
         </div>

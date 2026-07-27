@@ -261,6 +261,23 @@ const studentSchema = new mongoose.Schema(
     },
     removedAt: {
       type: Date
+    },
+    promotionStatus: {
+      type: String,
+      enum: ['Pending', 'Failed', 'Promoted'],
+      default: 'Pending'
+    },
+    failReason: {
+      type: String,
+      default: ''
+    },
+    failMarks: {
+      type: String,
+      default: ''
+    },
+    reattemptCount: {
+      type: Number,
+      default: 0
     }
   },
   {
